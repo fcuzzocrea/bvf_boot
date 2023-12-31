@@ -1,0 +1,4 @@
+CompileFlags:
+  Compiler: riscv64-unknown-elf-gcc
+Diagnostics:
+  UnusedIncludes: Strict

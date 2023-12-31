@@ -1,0 +1,11 @@
+---
+modules:
+  - 'lib/libplatform'
+
+files:
+  - 'src/main.c'
+  - 'src/start.S'
+
+includes:
+  - 'build/generated_headers'
+  - 'include'

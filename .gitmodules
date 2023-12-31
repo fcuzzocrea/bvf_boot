@@ -1,0 +1,3 @@
+[submodule "lib/libplatform"]
+	path = lib/libplatform
+	url = ../platform.git

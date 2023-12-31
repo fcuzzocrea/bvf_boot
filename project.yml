@@ -1,0 +1,8 @@
+---
+cflags:
+  global:
+     - '-DIMAGE_LOADED_BY_BOOTLOADER=0'
+     - '-O0'
+
+linker:
+  script: mpfs-lim

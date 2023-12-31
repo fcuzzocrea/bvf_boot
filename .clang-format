@@ -1,0 +1,22 @@
+---
+BasedOnStyle: Google
+Language: Cpp
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 250
+AlwaysBreakBeforeMultilineStrings: true
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+IndentCaseLabels: true
+AlignTrailingComments: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AlignAfterOpenBracket: true
+SpaceAfterCStyleCast: false
+MaxEmptyLinesToKeep: 2
+BreakBeforeBinaryOperators: NonAssignment
+BreakStringLiterals: false
+ContinuationIndentWidth: 8
+PointerAlignment: Right
+AlignArrayOfStructures: None
+IncludeBlocks: Preserve
