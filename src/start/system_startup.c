@@ -16,9 +16,10 @@
 #include "mpfs_hal/common/nwc/mss_nwc_init.h"
 #include "mpfs_hal/startup_gcc/system_startup_defs.h"
 
-
 static uint32_t parked_harts = 0U;
-void* __dso_handle = (void*) &__dso_handle;
+
+extern int main();
+static void park_hart(void);
 
 /*==============================================================================
  * This function is called by the lowest enabled hart (MPFS_HAL_FIRST_HART) in
@@ -80,22 +81,8 @@ int main_first_hart(HLS_DATA* hls)
             {
                 default:
                 case INIT_THREAD_PR:
-
-                    switch (hart_id)
-                    {
-                        case 1:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h1$);
-                            break;
-                        case 2:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h2$);
-                            break;
-                        case 3:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h3$);
-                            break;
-                        case 4:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h4$);
-                            break;
-                    }
+                    stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h1$);
+                    break;
                     hls = (HLS_DATA*)(stack_top - HLS_DEBUG_AREA_SIZE);
                     sm_check_thread = CHECK_WFI;
                     wait_count = 0U;
@@ -145,6 +132,7 @@ int main_first_hart(HLS_DATA* hls)
         
         /* Turn off peripheral RAM that is not being used */
         mss_turn_off_unused_ram_clks();
+
         /*
          * Turn on fic interfaces by default. Drivers will turn on/off other MSS
          * peripherals as required.
@@ -153,121 +141,10 @@ int main_first_hart(HLS_DATA* hls)
         (void)mss_config_clk_rst(MSS_PERIPH_FIC1, (uint8_t)MPFS_HAL_FIRST_HART, PERIPHERAL_ON);
         (void)mss_config_clk_rst(MSS_PERIPH_FIC2, (uint8_t)MPFS_HAL_FIRST_HART, PERIPHERAL_ON);
         (void)mss_config_clk_rst(MSS_PERIPH_FIC3, (uint8_t)MPFS_HAL_FIRST_HART, PERIPHERAL_ON);
+
         /* enable the fabric */
         mss_enable_fabric();
 
-        (void)main_other_hart(hls);
-    }
-
-    __builtin_unreachable();
-    /* should never get here */
-    while(true)
-    {
-       static volatile uint64_t counter = 0U;
-       /* Added some code as debugger hangs if in loop doing nothing */
-       counter = counter + 1U;
-    }
-
-    return (0);
-}
-
-/*==============================================================================
- * This function is called by the lowest enabled hart (MPFS_HAL_FIRST_HART) in
- * the configuration file :
- * (src/boards/<my-board/platform_config/mpfs_hal_config/mss_sw_config.h )
- *
- * The other harts up to MPFS_HAL_LAST_HART are placed in wfi at this point.
- * This function brings them out of wfi in sequence.
- * If you need to modify this function, create your own one in a user directory
- * space
- * e.g. /hart0/e51.c
- */
-
-int main_first_hart_app(HLS_DATA* hls)
-{
-    uint64_t hartid = read_csr(mhartid);
-
-    if(hartid == MPFS_HAL_FIRST_HART)
-    {
-        uint8_t hart_id;
-        ptrdiff_t stack_top;
-
-        init_memory();
-
-        hls->my_hart_id = MPFS_HAL_FIRST_HART;
-        hls->in_wfi_indicator = HLS_MAIN_HART_STARTED;
-        WFI_SM sm_check_thread = INIT_THREAD_PR;
-        hart_id = MPFS_HAL_FIRST_HART + 1U;
-        while( hart_id <= MPFS_HAL_LAST_HART)
-        {
-            uint32_t wait_count = 0U;
-
-            switch(sm_check_thread)
-            {
-                default:
-                case INIT_THREAD_PR:
-
-                    switch (hart_id)
-                    {
-                        case 1:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h1$);
-                            break;
-                        case 2:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h2$);
-                            break;
-                        case 3:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h3$);
-                            break;
-                        case 4:
-                            stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h4$);
-                            break;
-                    }
-                    hls = (HLS_DATA*)(stack_top - HLS_DEBUG_AREA_SIZE);
-                    sm_check_thread = CHECK_WFI;
-                    wait_count = 0U;
-                    break;
-
-                case CHECK_WFI:
-                    if( hls->in_wfi_indicator == HLS_OTHER_HART_IN_WFI )
-                    {
-                        /* Separate state- to add a little delay */
-                        sm_check_thread = SEND_WFI;
-                    }
-                    break;
-
-                case SEND_WFI:
-                    hls->my_hart_id = hart_id; /* record hartid locally */
-                    raise_soft_interrupt(hart_id);
-                    sm_check_thread = CHECK_WAKE;
-                    wait_count = 0UL;
-                    break;
-
-                case CHECK_WAKE:
-                    if( hls->in_wfi_indicator == HLS_OTHER_HART_PASSED_WFI )
-                    {
-                        sm_check_thread = INIT_THREAD_PR;
-                        hart_id++;
-                        wait_count = 0UL;
-                    }
-                    else
-                    {
-                        wait_count++;
-                        if(wait_count > 0x10U)
-                        {
-                            if( hls->in_wfi_indicator == HLS_OTHER_HART_IN_WFI )
-                            {
-                                hls->my_hart_id = hart_id; /* record hartid locally */
-                                raise_soft_interrupt(hart_id);
-                                wait_count = 0UL;
-                            }
-                        }
-                    }
-                    break;
-            }
-        }
-        stack_top = (ptrdiff_t)((uint8_t*)&__stack_top_h1$);
-        hls = (HLS_DATA*)(stack_top - HLS_DEBUG_AREA_SIZE);
-        hls->in_wfi_indicator = HLS_MAIN_HART_FIN_INIT;
         (void)main_other_hart(hls);
     }
 
@@ -315,17 +192,11 @@ int main_other_hart(HLS_DATA* hls)
 #endif
 
     turn_on_fpu((uint32_t)LIBERO_SETTING_TURN_ON_FPU);
-#ifdef  MPFS_HAL_SHARED_MEM_ENABLED
+
     /*
-     * If we are a boot-loader, and shared memory enabled (MPFS_HAL_SHARED_MEM_ENABLED)
-     * sets the pointer in each harts HLS to the shared memory.
-     * This allows access to this shared memory across all harts.
+     * We are not using shared memory
      */
-    const uint64_t app_hart_common_start = (const uint64_t)&__app_hart_common_start;
-    hls->shared_mem = (uint64_t *)app_hart_common_start;
-    hls->shared_mem_marker = SHARED_MEM_INITALISED_MARKER;
-    hls->shared_mem_status = SHARED_MEM_DEFAULT_STATUS;
-#endif
+    hls->shared_mem = (uint64_t *)NULL;
 
     volatile uint64_t dummy;
 
@@ -334,31 +205,35 @@ int main_other_hart(HLS_DATA* hls)
 
     case 0U:
         __asm volatile ("add sp, x0, %1" : "=r"(dummy) : "r"(app_stack_top_h0));
-        e51();
+        main();
         break;
 
     case 1U:
         (void)init_pmp((uint8_t)1);
         __asm volatile ("add sp, x0, %1" : "=r"(dummy) : "r"(app_stack_top_h1));
-        u54_1();
+        parked_harts |= (1U << 1U);
+        park_hart();
         break;
 
     case 2U:
         (void)init_pmp((uint8_t)2);
         __asm volatile ("add sp, x0, %1" : "=r"(dummy) : "r"(app_stack_top_h2));
-        u54_2();
+        parked_harts |= (1U << 2U);
+        park_hart();
         break;
 
     case 3U:
         (void)init_pmp((uint8_t)3);
         __asm volatile ("add sp, x0, %1" : "=r"(dummy) : "r"(app_stack_top_h3));
-        u54_3();
+        parked_harts |= (1U << 3U);
+        park_hart();
         break;
 
     case 4U:
         (void)init_pmp((uint8_t)4);
         __asm volatile ("add sp, x0, %1" : "=r"(dummy) : "r"(app_stack_top_h4));
-        u54_4();
+        parked_harts |= (1U << 4U);
+        park_hart();
         break;
 
     default:
@@ -403,20 +278,6 @@ void load_virtual_rom(void)
 }
 
 /*==============================================================================
- * Initialize the global constructor before using any C++ feature which depends
- * on global constructors.
- */
-static void init_global_constructors(void)
-{
-    void (**fun_ptr)(void) = (void (**)(void))&__init_array_start;
-    while (fun_ptr != (void (**)(void))&__init_array_end)
-    {
-        (*fun_ptr)();
-        fun_ptr++;
-     }
-}
-
-/*==============================================================================
  * Put the hart executing this code into an infinite loop executing from the
  * SCB system register memory space.
  * This allows preventing a hart from accessing memory regardless of memory
@@ -432,63 +293,6 @@ static void park_hart(void)
     __asm volatile("ret");
 }
 
-/*==============================================================================
- * First U54.
- * In absence of an application function of this name with strong linkage, this
- * function will get linked.
- * This default implementation is for illustration purpose only. If you need to
- * modify this function, create your own one in an application directory space.
-  */
-void u54_1(void)
-{
-    parked_harts |= (1U << 1U);
-    /* Put hart in safe infinite WFI loop. */
-     park_hart();
-}
-
-
-/*==============================================================================
- * Second U54.
- * In absence of an application function of this name with strong linkage, this
- * function will get linked.
- * This default implementation is for illustration purpose only. If you need to
- * modify this function, create your own one in an application directory space.
- */
-void u54_2(void)
-{
-    parked_harts |= (1U << 2U);
-    /* Put hart in safe infinite WFI loop. */
-    park_hart();
-}
-
-/*==============================================================================
- * Third U54.
- * In absence of an application function of this name with strong linkage, this
- * function will get linked.
- * This default implementation is for illustration purpose only. If you need to
- * modify this function, create your own one in an application directory space.
- */
-void u54_3(void)
-{
-    parked_harts |= (1U << 3U);
-    /* Put hart in safe infinite WFI loop. */
-     park_hart();
-}
-
-/*==============================================================================
- * Fourth U54.
- * In absence of an application function of this name with strong linkage, this
- * function will get linked.
- * This default implementation is for illustration purpose only. If you need to
- * modify this function, create your own one in an application directory space.
- */
-void u54_4(void)
-{
-    parked_harts |= (1U << 4U);
-    /* Put hart in safe infinite WFI loop. */
-    park_hart();
-}
-
  /*-----------------------------------------------------------------------------
   * _start() function called invoked
   * This function is called on power up and warm reset.
@@ -496,35 +300,15 @@ void u54_4(void)
  void init_memory( void)
  {
     copy_section(&__text_load, &__text_start, &__text_end);
-    copy_section(&__sdata_load, &__sdata_start, &__sdata_end);
     copy_section(&__data_load, &__data_start, &__data_end);
+    copy_section(&__srodata_load, &__srodata_start, &__srodata_end);
+    copy_section(&__sdata_load, &__sdata_start, &__sdata_end);
 
     zero_section(&__sbss_start, &__sbss_end);
     zero_section(&__bss_start, &__bss_end);
 
     __disable_all_irqs();      /* disables local and global interrupt enable */
  }
-
- /*-----------------------------------------------------------------------------
-   * _start() function called invoked
-   * This function is called on power up and warm reset.
-   */
-  void init_ddr(void)
-  {
-    if ((LIBERO_SETTING_DDRPHY_MODE & DDRPHY_MODE_MASK) != DDR_OFF_MODE) {
-#ifdef DDR_SUPPORT
-        uint64_t end_address;
-
-#if 0 /* enable to init cache to zero using 64 bit writes */
-        end_address = LIBERO_SETTING_DDR_64_NON_CACHE + LIBERO_SETTING_CFG_AXI_END_ADDRESS_AXI2_0 + LIBERO_SETTING_CFG_AXI_END_ADDRESS_AXI2_1;
-        zero_section((uint64_t *)LIBERO_SETTING_DDR_64_NON_CACHE, (uint64_t *)end_address);
-#endif
-
-        end_address = LIBERO_SETTING_DDR_64_CACHE + LIBERO_SETTING_CFG_AXI_END_ADDRESS_AXI1_0 + LIBERO_SETTING_CFG_AXI_END_ADDRESS_AXI1_1;
-        zero_section((uint64_t *)LIBERO_SETTING_DDR_64_CACHE, (uint64_t *)end_address);
-#endif
-    }
-  }
 
 /**
  * init_mem_protection_unit(void)

@@ -92,17 +92,6 @@
  */
 #define MPFS_HAL_HW_CONFIG
 
-/*
- * If you are using common memory for sharing across harts,
- * uncomment #define MPFS_HAL_SHARED_MEM_ENABLED
- * make sure common memory is allocated in the linker script
- * See app_hart_common mem section in the example platform
- * linker scripts.
- */
-
-//#define MPFS_HAL_SHARED_MEM_ENABLED
-
-
 /* define the required tick rate in Milliseconds */
 /* if this program is running on one hart only, only that particular hart value
  * will be used */

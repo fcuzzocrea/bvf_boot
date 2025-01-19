@@ -27,7 +27,7 @@ const uint8_t g_message1[] =
 ---------------------------------------------------\r\n";
 
 
-void e51(void)
+int main(void)
 {
     volatile uint32_t icount = 0U;
     uint64_t hartid = read_csr(mhartid);
