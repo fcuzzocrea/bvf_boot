@@ -1,8 +1,5 @@
-#ifndef MSS_SW_CONFIG_H_
-#define MSS_SW_CONFIG_H_
-
 /*******************************************************************************
- * Copyright 2019-2022 Microchip FPGA Embedded Systems Solutions.
+ * Copyright 2019-2023 Microchip FPGA Embedded Systems Solutions.
  *
  * SPDX-License-Identifier: MIT
  *
@@ -35,11 +32,11 @@
 
 *//*==========================================================================*/
 
-/*
- * Include any driver setup/over-rides you may require.
- */
-//#include "drivers/fpga_ip/miv_ihc/miv_ihc_defines.h"
-//#include "drivers_config/fpga_ip/miv_ihc/miv_ihc_config.h"
+
+#ifndef MSS_SW_CONFIG_H_
+#define MSS_SW_CONFIG_H_
+
+#define IMAGE_LOADED_BY_BOOTLOADER 0
 
 /*
  * MPFS_HAL_FIRST_HART and MPFS_HAL_LAST_HART defines are used to specify which
@@ -74,12 +71,6 @@
 #endif
 
 /*
- * IMAGE_LOADED_BY_BOOTLOADER
- * We set IMAGE_LOADED_BY_BOOTLOADER = 0 if the application image runs from
- * non-volatile memory after reset. (No previous stage bootloader is used.)
- * Set IMAGE_LOADED_BY_BOOTLOADER = 1 if the application image is loaded by a
- * previous stage bootloader.
- *
  * MPFS_HAL_HW_CONFIG is defined if we are a boot-loader. This is a
  * conditional compile switch is used to determine if MPFS HAL will perform the
  * hardware configurations or not.
@@ -99,16 +90,7 @@
  *   MPFS_HAL_LAST_HART above
  *
  */
-#define IMAGE_LOADED_BY_BOOTLOADER 0
-#if (IMAGE_LOADED_BY_BOOTLOADER == 0)
 #define MPFS_HAL_HW_CONFIG
-#endif
-
-/*------------------------------------------------------------------------------
- * Markers used to indicate startup status of hart
- */
-#define HLS_DATA_IN_WFI                     0x12345678U
-#define HLS_DATA_PASSED_WFI                 0x87654321U
 
 /*
  * If you are using common memory for sharing across harts,
@@ -159,9 +141,7 @@
  * 1 => Clears memory
  * Note: If you are the zero stage bootloader, set this to one.
  */
-#ifndef MPFS_HAL_CLEAR_MEMORY
-#define MPFS_HAL_CLEAR_MEMORY  0
-#endif
+#define MPFS_HAL_CLEAR_MEMORY  1
 
 /*
  * Comment out the lines to disable the corresponding hardware support not required
@@ -170,9 +150,16 @@
  * by MSS configurator settings, and items are enabled/disabled by this method.
  * The reason you may want to use below is to save code space.
  */
-//#define SGMII_SUPPORT
-//#define DDR_SUPPORT
+#define SGMII_SUPPORT
+#define DDR_SUPPORT
 #define MSSIO_SUPPORT
+
+/*
+ * Uncomment MICROCHIP_STDIO_THRU_MMUARTx to enable stdio port
+ * Note: you must have mss_mmuart driver source code included in the project.
+ */
+#define MICROCHIP_STDIO_THRU_MMUARTX    &g_mss_uart0_lo
+#define MICROCHIP_STDIO_BAUD_RATE       MSS_UART_115200_BAUD
 
 /*
  * DDR software options
@@ -193,32 +180,14 @@
 //#define DEBUG_DDR_DDRCFG
 
 /*
- * SDIO register address location in fabric
- */
-/*
- * We want the Kconfig-generated config.h file to get the SDIO Register Address,
- * but it defines CONFIG_OPENSBI...
+ * The hardware configuration settings imported from Libero project get generated
+ * into <project_name>/src/boards/<your-board>/<fpga-design-config> folder.
+ * If you need to overwrite them for testing purposes, you can do so here.
+ * e.g. If you want change the default SEG registers configuration defined by
+ * LIBERO_SETTING_SEG0_0, define it here and it will take precedence.
+ * #define LIBERO_SETTING_SEG0_0 0x80007F80UL
  *
- * OpenSBI type definitions conflict with mpfs_hal
- * so we need to undefine CONFIG_OPENSBI after including config.h
  */
-//#include "config.h"
-//#undef CONFIG_OPENSBI
-
-#ifdef CONFIG_SERVICE_MMC_FABRIC_SD_EMMC_DEMUX_SELECT_ADDRESS
-#  undef LIBERO_SETTING_FPGA_SWITCH_ADDRESS
-#  define LIBERO_SETTING_FPGA_SWITCH_ADDRESS CONFIG_SERVICE_MMC_FABRIC_SD_EMMC_DEMUX_SELECT_ADDRESS
-#else
-#  ifndef LIBERO_SETTING_FPGA_SWITCH_ADDRESS
-#    define LIBERO_SETTING_FPGA_SWITCH_ADDRESS 0x4fffff00
-#  endif
-#endif
-
-/*
- * Override QSPI chip select IOMUX to allow QSPI's chip select to be controlled
- * using MSS GPIO_0[12].
- */
-#define LIBERO_SETTING_IOMUX5_CR    0xB88B22B2UL
 
 #endif /* USER_CONFIG_MSS_USER_CONFIG_H_ */
 
