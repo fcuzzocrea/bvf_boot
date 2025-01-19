@@ -24,7 +24,6 @@
 
 reset_vector:
 _start:
-#if (IMAGE_LOADED_BY_BOOTLOADER == 0)
     /*
      * clear the Return Address Stack
      */
@@ -32,10 +31,10 @@ _start:
     /* Setup trap handler */
     la a4, trap_vector
     csrw mtvec, a4          # initalise machine trap vector address
-    /* Make sure that mtvec is updated before continuing  - this makes things go boom boom boom */
-    #1:
-    #csrr    a5, mtvec
-    #bne a4, a5, 1b
+    /* Make sure that mtvec is updated before continuing */
+    1:
+    csrr    a5, mtvec
+    bne a4, a5, 1b
     /* Disable and clear all interrupts */
     li a2,  MSTATUS_MIE
     csrc mstatus, a2        # clear interrupt enable bit
@@ -92,20 +91,7 @@ _start:
     li  x30,0
     li  x31,0
 
-    # enable FPU and accelerator if present, setting ignored on E51
-    li t0, MSTATUS_FS | MSTATUS_XS
-    csrs mstatus, t0
-
-    # Init floating point control register to zero
-    # skip if e51
-    csrr a0, mhartid
-    beqz a0, .no_float
-#ifdef __riscv_flen
-    fscsr x0
-#endif
-.no_float:
-
-     # make sure XLEN agrees with compilation choice, if not will loop here
+    # make sure XLEN agrees with compilation choice, if not will loop here
 .LxlenCheck:
     csrr t0, misa
 #if __riscv_xlen == 64
@@ -276,204 +262,6 @@ _start:
     nop
     j .LoopForeverOther
 
-#else   /* IMAGE_LOADED_BY_BOOTLOADER == 1 */
-/*******************************************************************************
- *The program has been loaded by a bootloader
- * a0 - contains the hart ID
- * a1 - contains pointer to bootloader -Hart Local Storage, for this hart.
- */
-_start_non_bootloader_amp_image:
-    /* Setup trap handler */
-    la a4, trap_vector
-    csrw mtvec, a4          # initalise machine trap vector address
-    /* Make sure that mtvec is updated before continuing */
-    1:
-    csrr    a5, mtvec
-    bne a4, a5, 1b
-    /* assume ints in init state */
-    /* assume PMP's set as required */
-    # enable FPU and accelerator if present, setting ignored on E51
-    li t0, MSTATUS_FS | MSTATUS_XS
-    csrs mstatus, t0
-
-    # Init floating point control register to zero
-    # skip if e51
-    csrr a0, mhartid
-    beqz a0, .no_float
-#ifdef __riscv_flen
-    fscsr x0
-#endif
-.no_float:
-
-     # make sure XLEN agrees with compilation choice, if not will loop here
-.LxlenCheck:
-    csrr t0, misa
-#if __riscv_xlen == 64
-    bltz t0, .LxlenPass
-#else
-    bgez t0, .LxlenPass
-#endif
-    j .LxlenCheck
-.LxlenPass:
-
-    # initialize global pointer, global data
-    # The __global_pointer is allocated in the linker script. It points to a
-    # location 2k after sdata start as the offsets used in the gp are +/- 2k
-    # See https://www.sifive.com/blog/2017/08/28/all-aboard-part-3-linker-relaxation-in-riscv-toolchain/
-    # see: http://www.rowleydownload.co.uk/arm/documentation/gnu/as/RISC_002dV_002dDirectives.html
-    .option push
-    .option norelax
-    la gp, __global_pointer$
-    .option pop
-
-    # get core id
-    csrr a0, mhartid
-    li a1,  0
-    beq a0, a1, .hart0
-    li a1,  1
-    beq a0, a1, .hart1
-    li a1,  2
-    beq a0, a1, .hart2
-    li a1,  3
-    beq a0, a1, .hart3
-    li a1,  4
-    beq a0, a1, .hart4
-
-.hart0:
-    la a4, __stack_bottom_h0$  # keep bottom of stack in a5 so we can init later
-    la sp, __stack_top_h0$
-    j .continue
-.hart1:
-    la a4, __stack_bottom_h1$  # keep bottom of stack in a5 so we can init later
-    la sp, __stack_top_h1$
-    j .continue
-.hart2:
-    la a4, __stack_bottom_h2$  # keep bottom of stack in a5 so we can init later
-    la sp, __stack_top_h2$
-    j .continue
-.hart3:
-    la a4, __stack_bottom_h3$  # keep bottom of stack in a5 so we can init later
-    la sp, __stack_top_h3$
-    j .continue
-.hart4:
-    la a4, __stack_bottom_h4$  # keep bottom of stack in a5 so we can init later
-    la sp, __stack_top_h4$
-
-.continue:
-    # clear HLS and stack
-    mv  a5, sp
-.init_stack:
-    #csrw mepc, zero
-    STORE x0, 0(a4)
-    add a4, a4, __SIZEOF_POINTER__
-    blt a4, a5, .init_stack
-    # Allocate some space at top of stack for the HLS
-    addi sp, sp, -HLS_DEBUG_AREA_SIZE
-    # HLS grows up from new top of stack
-    mv tp, sp
-    # get core id
-    csrr a0, mhartid
-    li a1, MPFS_HAL_FIRST_HART
-    bne a0, a1, .LOtherHartstoWFI
-    # clear the common heap
-    la  a4, __heap_start
-    la  a5, __heap_end
-.init_heap:
-    #csrw mepc, zero
-    STORE x0, 0(a4)
-    add a4, a4, __SIZEOF_POINTER__
-    blt a4, a5, .init_heap
-    # now core MPFS_HAL_FIRST_HART jumps to main_first_hart
-.main_hart:
-    # pass HLS address
-    mv  a0, tp
-    j main_first_hart_app
-.LoopForeverMain:
-    #in case of return, loop forever. nop's added so can be seen in debugger
-    nop
-    nop
-    j .LoopForeverMain
-
-.LOtherHartstoWFI:
-    li a2,  MSTATUS_MIE
-    csrc mstatus, a2       # clear interrupt enable bit
-    csrw mie, zero
-    csrw mip, zero
-    li a2, MIP_MSIP
-    csrw mie, a2           # Set MSIE bit to receive IPI. This needs to be
-                           # enabled- otherwise stays in wfi.
-                           # Other interrupts appera to bring out of wfi,even if
-                           # not enabled.
-    #
-    # Wait here until main hart is up and running
-    #
-    # get core id
-    la a2, MPFS_HAL_FIRST_HART
-    li a3,  0
-    beq a3, a2, .main_hart0
-    li a3,  1
-    beq a3, a2, .main_hart1
-    li a3,  2
-    beq a3, a2, .main_hart2
-    li a3,  3
-    beq a3, a2, .main_hart3
-    li a3,  4
-    beq a3, a2, .main_hart4
-
-.main_hart0:
-    la a4, (__stack_top_h0$ - HLS_DEBUG_AREA_SIZE)
-    j  1f
-.main_hart1:
-    la a4, (__stack_top_h1$ - HLS_DEBUG_AREA_SIZE)
-    j  1f
-.main_hart2:
-    la a4, (__stack_top_h2$ - HLS_DEBUG_AREA_SIZE)
-    j  1f
-.main_hart3:
-    la a4, (__stack_top_h3$ - HLS_DEBUG_AREA_SIZE)
-    j  1f
-.main_hart4:
-    la a4, (__stack_top_h4$ - HLS_DEBUG_AREA_SIZE)
-1:
-    li a3, HLS_MAIN_HART_STARTED
-.wait_main_hart:
-    LWU a2, 0(a4)
-    bne a3, a2, .wait_main_hart
-    # Flag we are here to the main hart
-    li a1, HLS_OTHER_HART_IN_WFI
-    sw a1, 0(tp)
-    /* flush the instruction cache */
-    fence.i
-.LwaitOtherHart:
-    # We assume wfi instruction will be run before main hart attampts to take
-    # out of wfi
-    wfi
-    # Only start if MIP_MSIP is set - the wfi will ensure this, but adding
-    # breakpoints in the debugger (halt)
-    # will wakeup wfi, so the following code will make sure we remain here until
-    # we get a software interrupt
-    csrr a2, mip
-    andi a2, a2, MIP_MSIP
-    beqz a2, .LwaitOtherHart
-    /* Disable and clear all interrupts- should be only a sw interrupt */
-    li a2,  MSTATUS_MIE
-    csrc mstatus, a2        # clear interrupt enable bit
-    csrw mie, zero
-    csrw mip, zero
-    # set marker as to where we are
-    li a1, HLS_OTHER_HART_PASSED_WFI
-    sw a1, 0(tp)
-    # pass HLS address
-    mv  a0, tp
-    j main_other_hart
-.LoopForeverOther:
-    #in case of return, loop forever. nop's added so can be seen in debugger
-    nop
-    nop
-    j .LoopForeverOther
-
-#endif /* IMAGE_LOADED_BY_BOOTLOADER == 0 */
-
 /******************************************************************************/
 /******************************interrupt handeling below here******************/
 /******************************************************************************/
@@ -545,7 +333,7 @@ trap_vector:
     # At this point (2019), both are supported in latest compiler
     # older compiler versions only support mbadaddr, so going with this.
     # See: https://github.com/riscv/riscv-gcc/issues/133
-    csrr a1, mbadaddr                 # useful for anaysis when things go wrong
+    csrr a1, mtval                 # useful for anaysis when things go wrong
     csrr a2, mepc
     jal trap_from_machine_mode
 
