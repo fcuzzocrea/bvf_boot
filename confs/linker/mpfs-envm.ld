@@ -54,17 +54,17 @@ MEMORY
     U54_3_ITIM (rwxa) : ORIGIN = 0x01820000, LENGTH =  28K
 
     /* Level 2 memories. 128 KiB from 2 MiB must be reserved for cache */
-    LIM        (rwxa) : ORIGIN = 0x08000000, LENGTH = 512K
-    SCRATCH    (rwxa) : ORIGIN = 0x0A000000, LENGTH = 512K
+    LIM        (rwxa) : ORIGIN = 0x08000000, LENGTH = 128K
+    SCRATCH    (rwxa) : ORIGIN = 0x0A000000, LENGTH = 0K
 
     /* DDR memory Layout (1GB)
      *  C : Cached
      * NC : Non-Cached
      */
-    DDR_C_LOW   (rwxa) : ORIGIN = 0x80000000,   LENGTH = 768M
-    DDR_NC_LOW  (rwxa) : ORIGIN = 0xC0000000,   LENGTH = 256M
-    DDR_WCB_LOW (rwx) : ORIGIN  = 0xD0000000,   LENGTH = 256M
-    DDR_C_HI    (rwxa) : ORIGIN = 0x1000000000, LENGTH = 1024M
+    DDR_C_LOW   (rwxa) : ORIGIN = 0x80000000,   LENGTH = 1024M
+    DDR_NC_LOW  (rwxa) : ORIGIN = 0xC0000000,   LENGTH = 0M
+    DDR_WCB_LOW (rwx) : ORIGIN  = 0xD0000000,   LENGTH = 0M
+    DDR_C_HI    (rwxa) : ORIGIN = 0x1000000000, LENGTH = 0M
     DDR_NC_HI   (rwxa) : ORIGIN = 0x1400000000, LENGTH = 0M
     DDR_WCB_HIGH (rwx) : ORIGIN = 0x1800000000, LENGTH = 0M
 
