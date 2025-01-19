@@ -3,12 +3,12 @@
 # -*- coding: utf-8 -*-
 # Author: Francescodario Cuzzocrea <bosconovic@gmail.com>
 
-import os
+import shutil
 
 
-def clean_objects():
-    """
-    The clean_objects function can be used to remove all the objects generated in the build directory
-    """
-    os.system('rm build -r -f')
-    os.system('rm build_current -r -f')
+def clean_objects() -> None:
+    # The clean_objects function can be used to remove all the objects generated in
+    # the build directory.
+
+    shutil.rmtree('build', ignore_errors=True)
+    shutil.rmtree('build_current', ignore_errors=True)

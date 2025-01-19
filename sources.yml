@@ -3,8 +3,10 @@ modules:
   - 'lib/libplatform'
 
 files:
+  - 'src/start/mss_entry.S'
+  - 'src/start/mss_utils.S'
+  - 'src/start/system_startup.c'
   - 'src/main.c'
-  - 'src/start.S'
 
 includes:
   - 'build/generated_headers'

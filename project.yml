@@ -1,8 +1,18 @@
 ---
+platform:
+  - 'baremetal'
+
+is_bootloader:
+  - 'true'
+
 cflags:
   global:
-     - '-DIMAGE_LOADED_BY_BOOTLOADER=0'
-     - '-O0'
+     - '-Os'
+     - '-Wno-analyzer-allocation-size'
+     - '-Wno-analyzer-null-dereference'
+     - '-Wno-analyzer-infinite-loop'
+     - '-Wno-analyzer-use-of-uninitialized-value'
+     - '-Wno-analyzer-shift-count-overflow'
 
 linker:
-  script: mpfs-lim
+  script: mpfs-envm

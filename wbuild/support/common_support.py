@@ -5,97 +5,94 @@
 
 from __future__ import division
 
-import locale
 import re
 import os
-import subprocess
 
-from waflib import Errors, Logs
+from waflib import Logs
 
 from tools.mss_header_binder import bind_mss_header_to_bin
 
 
-def post_build_stats(ctx):
-    """
-    The post_build_stats function prints some statistics relative to the ELF file which is being built, in particular
-    the output is:
+def post_build_stats(ctx) -> None:
+    # The post_build_stats function prints some statistics relative to the ELF file which is being
+    # built, in particular the output is:
+    #
+    #     ########################
+    #     Size Informations Below
+    #     ########################
+    #
+    #        text	   data	    bss	    dec	    hex	filename
+    #      362442	  22686	1588936	1974064	 1e1f30	build/release/sysctrlapp.elf
+    #
+    #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #       Uses [%]   Output Sections      Size [byte] (fill)        Memory
+    #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #          78.27   .bss                     1538872 (15)          LIM
+    #           0.88   .data                      17396 (4)           LIM
+    #           0.01   .entry                       278 (0)           LIM
+    #           0.00   .htif                         16 (0)           LIM
+    #           0.59   .opensbi                   49152 (0)           DDR_C_LOW_SCA_PRT
+    #           0.00   .rela.dyn                      0 (0)           LIM
+    #           2.31   .rodata                    45436 (655)         LIM
+    #           0.05   .sbss                        912 (73)          LIM
+    #           0.01   .sdata                       274 (7)           LIM
+    #           0.25   .sdram                      5000 (0)           LIM
+    #           0.02   .srodata                     328 (23)          LIM
+    #          16.09   .text                     316400 (242)         LIM
+    #
+    #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #       Used [%]   Memory               Size [byte] (used)
+    #     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #          97.91   LIM                      1966080 (1924912)
+    #           0.59   DDR_C_LOW_SCA_PRT        8388608 (49152)
+    #
+    #     ########################
+    #
+    # As post_build_stats depends on the ELF file, in order to avoid strange race conditions is a
+    # good practice to add it as a post_fun.
+    #
+    # Example usage:
+    #
+    #     # Post built tasks
+    #     ctx.add_post_fun(post_build_stats)
+    #
+    # Args:
+    #     :param ctx: The WAF context
 
-        ########################
-        Size Informations Below
-        ########################
-
-           text	   data	    bss	    dec	    hex	filename
-         362442	  22686	1588936	1974064	 1e1f30	build/release/sysctrlapp.elf
-
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          Uses [%]   Output Sections      Size [byte] (fill)        Memory
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             78.27   .bss                     1538872 (15)          LIM
-              0.88   .data                      17396 (4)           LIM
-              0.01   .entry                       278 (0)           LIM
-              0.00   .htif                         16 (0)           LIM
-              0.59   .opensbi                   49152 (0)           DDR_C_LOW_SCA_PRT
-              0.00   .rela.dyn                      0 (0)           LIM
-              2.31   .rodata                    45436 (655)         LIM
-              0.05   .sbss                        912 (73)          LIM
-              0.01   .sdata                       274 (7)           LIM
-              0.25   .sdram                      5000 (0)           LIM
-              0.02   .srodata                     328 (23)          LIM
-             16.09   .text                     316400 (242)         LIM
-
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-          Used [%]   Memory               Size [byte] (used)
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             97.91   LIM                      1966080 (1924912)
-              0.59   DDR_C_LOW_SCA_PRT        8388608 (49152)
-
-        ########################
-
-    As post_build_stats depends on the ELF file, in order to avoid strange race conditions is a good practice to
-    add it as a post_fun.
-
-    Example usage:
-
-        # Post built tasks
-        ctx.add_post_fun(post_build_stats)
-
-    Args:
-        :param ctx: The WAF context
-    """
     Logs.pprint('YELLOW', '\n########################\n' +
                 'Size Informations Below\n' +
                 '########################\n')
-    subprocess.call(''.join(ctx.env.SIZE) + ' build/' + ctx.variant + '/' +
-                    ctx.env.name + '.elf ', shell=True)
+    tilde = '~' * 77
+    Logs.pprint('YELLOW', tilde)
+    ctx.exec_command(''.join(ctx.env.SIZE) + ' ' + ctx.env.name + '.elf', cwd=ctx.variant_dir)
 
-    mapfile_dict = {
-        'mem_conf': ['Memory Configuration', 'Configurazione della memoria'],
-        'linker_conf': ['Linker script and memory map', 'Script del linker e mappa della memoria']
-    }
+    mapfile_map = {
+         'mem_conf': 'Memory Configuration',
+         'linker_conf': 'Linker script and memory map'
+     }
 
-    def get_string(strno):
-        current_locale = locale.getdefaultlocale()
-        if current_locale[0] == 'en_US' or current_locale[0] == 'en_GB' or current_locale[0] == 'en_EN':
-            lan_idx = 0
-        else:
-            lan_idx = 1
+    def get_string(strno) -> str | None:
         if strno == '1':
-            return mapfile_dict['mem_conf'][lan_idx]
+            return mapfile_map['mem_conf']
         if strno == '2':
-            return mapfile_dict['linker_conf'][lan_idx]
+            return mapfile_map['linker_conf']
+        return None
 
     memory = {}
     out_sect = {}
 
     # Regular expressions
-    memory_re = re.compile(r'(?P<memName>\w+)\s+(?P<memOrig>0x[\da-fA-F]+)\s+(?P<memLgt>0x[\da-fA-F]+)')
+    memory_re = re.compile(
+        r'(?P<memName>\w+)\s+(?P<memOrig>0x[\da-fA-F]+)\s+(?P<memLgt>0x[\da-fA-F]+)')
     out_sect_re_one_line = re.compile(
         r'(?P<sectName>\.[\S.]+)\s+(?P<sectStart>0x[\da-fA-F]+)\s+(?P<sectSize>0x[\da-fA-F]+)')
     out_sect_re_two_lines1 = re.compile(r'(?P<sectName>\.[\S.]+)$')
-    out_sect_re_two_lines2 = re.compile(r'\s+(?P<sectStart>0x[\da-fA-F]+)\s+(?P<sectSize>0x[\da-fA-F]+)')
+    out_sect_re_two_lines2 = re.compile(
+        r'\s+(?P<sectStart>0x[\da-fA-F]+)\s+(?P<sectSize>0x[\da-fA-F]+)')
     fill_re = re.compile(r' \*fill\*\s+(?P<fillAdd>0x[\da-fA-F]+)\s+(?P<fillLgt>0x[\da-fA-F]+)')
 
-    with open('build/' + ctx.variant + '/' + ctx.env.name + '.map', 'r') as map_file:
+    with open('build/' + ctx.variant + '/' + ctx.env.name + '.map', 'r',
+              encoding='utf-8') as map_file:
         scan_phase = ""
 
         # Keep track of last encountered output section
@@ -163,9 +160,9 @@ def post_build_stats(ctx):
 
         # Print the resulting output sections information
         tilde = '~' * 77
-        Logs.pprint('YELLOW', '\n' + tilde)
-        Logs.pprint('NORMAL', '{:>10s}{:<20s}{:>15s}{:<15s}{:<15s}'.format(
-            'Uses [%]', '   Output Sections', 'Size [byte]', ' (fill)', 'Memory'))
+        Logs.pprint('YELLOW', tilde)
+        Logs.pprint('NORMAL', f'{"Uses [%]":>10s}{"   Output Sections":<20s}'
+                              f'{"Size [byte]":>15s}{" (fill)":<15s}{"Memory":<15s}')
         Logs.pprint('YELLOW', tilde)
 
         # Sort all outSect keys
@@ -174,62 +171,41 @@ def post_build_stats(ctx):
         for outSectName in sorted_out_sect:
             sec_data = out_sect[outSectName]
             if sec_data['memory']:
-                Logs.pprint('NORMAL', '{:>10.2f}{:<20s}{:>15d}{:<15s}{:<15s}'.format(
-                    ((100 * sec_data['size']) / memory[sec_data['memory']]['length']),
-                    '   ' + outSectName,
-                    sec_data['size'],
-                    ' (' + str(sec_data['fill']) + ')',
-                    sec_data['memory']))
+                Logs.pprint('NORMAL',
+                            f'{((100*sec_data["size"])/memory[sec_data["memory"]]["length"]):>10.2f}'
+                            f'{"   " + outSectName:<20s}{sec_data["size"]:>15d}'
+                            f'{" (" + str(sec_data["fill"]) + ")":<15s}{sec_data["memory"]}')
 
         # Print the resulting memories information
         tilde = '~' * 60
         Logs.pprint('YELLOW', '\n' + tilde)
-        Logs.pprint('NORMAL', '{:>10s}{:<20s}{:>15s}{:<15s}'.format(
-            'Used [%]', '   Memory', 'Size [byte]', ' (used)'))
+        Logs.pprint('NORMAL', f'{"Used [%]":>10s}{"   Memory":<20s}'
+                    f'{"Size [byte]":>15s}{" (used)":<15s}')
         Logs.pprint('YELLOW', tilde)
         for mem_name, memData in memory.items():
             if memData['used'] > 0:
-                Logs.pprint('NORMAL', '{:>10.2f}{:<20s}{:>15d}{:<15s}'.format(
-                    (100 * memData['used']) / memData['length'],
-                    '   ' + mem_name,
-                    memData['length'],
-                    ' (' + str(memData['used']) + ')'))
-
-    Logs.pprint('YELLOW', '\n########################\n')
+                Logs.pprint('NORMAL', f'{(100 * memData["used"]) / memData["length"]:>10.2f}'
+                            f'{"   " + mem_name:<20s}{memData["length"]:>15d}'
+                            f'{" (" + str(memData["used"]) + ")":<15s}')
+    Logs.pprint('YELLOW', tilde + '\n')
 
 
-def clangdb_ide_support(ctx):
-    """
-    The clangdb_ide_support simply copies the compile_commands.json file into the project root directory for usage by
-    the IDEs which are supporting clangdb
+def prepend_mss_header(ctx) -> None:
+    # The prepend_mss_header function preprends the MSS header to any ELF
+    # file built with this build system.
+    # For knowing what the MSS header is and how it is made, please refer to
+    # the bind_mss_header_to_bin function documentation.
+    #
+    # As bind_mss_header_to_bin depends on the ELF file, in order to avoid
+    # strange race conditions is a good practice to add it as a post_fun.
+    #
+    # Example usage:
+    #
+    #     # Post built tasks
+    #     ctx.add_post_fun(bind_mss_header_to_bin)
+    #
+    # Args:
+    #     :param ctx: The WAF context
 
-    Example usage:
-
-        # Post built tasks
-        ctx.add_post_fun(clangdb_ide_support)
-
-    Args:
-        :param ctx: The WAF context
-    """
-    subprocess.call('cp' + ' build/' + ctx.variant + '/compile_commands.json . ', shell=True)
-
-
-def prepend_mss_header(ctx):
-    """
-    The prepend_mss_header function preprends the MSS header to any ELF file built with this build system.
-    For knowing what the MSS header is and how it is made, please refer to the bind_mss_header_to_bin function
-    documentation.
-
-    As bind_mss_header_to_bin depends on the ELF file, in order to avoid strange race conditions is a good practice to
-    add it as a post_fun.
-
-    Example usage:
-
-        # Post built tasks
-        ctx.add_post_fun(bind_mss_header_to_bin)
-
-    Args:
-        :param ctx: The WAF context
-    """
-    bind_mss_header_to_bin('build/' + ctx.variant + '/' + ctx.env.name + '.bin', ''.join(ctx.env.OBJCOPY))
-
+    bind_mss_header_to_bin(os.path.join(ctx.variant_dir, ctx.env.name + '.bin'),
+                           ''.join(ctx.env.OBJCOPY))
