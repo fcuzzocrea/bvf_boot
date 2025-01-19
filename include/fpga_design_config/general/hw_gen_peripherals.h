@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2023 Microchip FPGA Embedded Systems Solutions.
+ * Copyright 2019-2025 Microchip FPGA Embedded Systems Solutions.
  *
  * SPDX-License-Identifier: MIT
  *
@@ -54,7 +54,7 @@ extern  "C" {
 #if !defined (LIBERO_SETTING_CONFIGURED_PERIPHERALS)
 /*MSS peripherals configured in this instance of MSS Configurator generated
 output. 1 implies it has been configured, 0 it has not been configured. */
-#define LIBERO_SETTING_CONFIGURED_PERIPHERALS    0x000E7FFDUL
+#define LIBERO_SETTING_CONFIGURED_PERIPHERALS    0x000FFFFDUL
     /* EMMC                              [0:1]   RW value= 0x1 */
     /* SD_SDIO                           [1:1]   RW value= 0x0 */
     /* USB                               [2:1]   RW value= 0x1 */
@@ -70,8 +70,8 @@ output. 1 implies it has been configured, 0 it has not been configured. */
     /* MMUART4                           [12:1]  RW value= 0x1 */
     /* I2C0                              [13:1]  RW value= 0x1 */
     /* I2C1                              [14:1]  RW value= 0x1 */
-    /* CAN0                              [15:1]  RW value= 0x0 */
-    /* CAN1                              [16:1]  RW value= 0x0 */
+    /* CAN0                              [15:1]  RW value= 0x1 */
+    /* CAN1                              [16:1]  RW value= 0x1 */
     /* GPIO0                             [17:1]  RW value= 0x1 */
     /* GPIO1                             [18:1]  RW value= 0x1 */
     /* GPIO2                             [19:1]  RW value= 0x1 */

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2023 Microchip FPGA Embedded Systems Solutions.
+ * Copyright 2019-2025 Microchip FPGA Embedded Systems Solutions.
  *
  * SPDX-License-Identifier: MIT
  *
@@ -34,13 +34,13 @@ extern  "C" {
 
 #if !defined (LIBERO_SETTING_MSS_PLL_CTRL)
 /*PLL control register */
-#define LIBERO_SETTING_MSS_PLL_CTRL    0x01000017UL
+#define LIBERO_SETTING_MSS_PLL_CTRL    0x01000037UL
     /* REG_POWERDOWN_B                   [0:1]   RW value= 0x1 */
     /* REG_RFDIV_EN                      [1:1]   RW value= 0x1 */
     /* REG_DIVQ0_EN                      [2:1]   RW value= 0x1 */
     /* REG_DIVQ1_EN                      [3:1]   RW value= 0x0 */
     /* REG_DIVQ2_EN                      [4:1]   RW value= 0x1 */
-    /* REG_DIVQ3_EN                      [5:1]   RW value= 0x0 */
+    /* REG_DIVQ3_EN                      [5:1]   RW value= 0x1 */
     /* REG_RFCLK_SEL                     [6:1]   RW value= 0x0 */
     /* RESETONLOCK                       [7:1]   RW value= 0x0 */
     /* BYPCK_SEL                         [8:4]   RW value= 0x0 */
@@ -93,7 +93,7 @@ extern  "C" {
 #endif
 #if !defined (LIBERO_SETTING_MSS_PLL_DIV_2_3)
 /*PLL 2/3 division registers */
-#define LIBERO_SETTING_MSS_PLL_DIV_2_3    0x01000300UL
+#define LIBERO_SETTING_MSS_PLL_DIV_2_3    0x4B000300UL
     /* VCO2PH_SEL                        [0:3]   RO */
     /* DIV2_START                        [3:3]   RW value= 0x0 */
     /* RESERVE22                         [6:2]   RSVD */
@@ -102,7 +102,7 @@ extern  "C" {
     /* VCO3PH_SEL                        [16:3]  RO */
     /* DIV3_START                        [19:3]  RW value= 0x0 */
     /* RESERVE24                         [22:2]  RSVD */
-    /* POST3DIV                          [24:7]  RW value= 0x1 */
+    /* POST3DIV                          [24:7]  RW value= 0x4B */
     /* CKPOST3_SEL                       [31:1]  RW value= 0x0 */
 #endif
 #if !defined (LIBERO_SETTING_MSS_PLL_CTRL2)

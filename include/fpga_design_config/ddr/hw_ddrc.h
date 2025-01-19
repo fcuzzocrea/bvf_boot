@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2023 Microchip FPGA Embedded Systems Solutions.
+ * Copyright 2019-2025 Microchip FPGA Embedded Systems Solutions.
  *
  * SPDX-License-Identifier: MIT
  *
@@ -1004,8 +1004,8 @@ extern  "C" {
 #endif
 #if !defined (LIBERO_SETTING_CFG_AUTO_ZQ_CAL_EN)
 /*IP Blk = MC_BASE2 Access=RW */
-#define LIBERO_SETTING_CFG_AUTO_ZQ_CAL_EN    0x00000000UL
-    /* CFG_AUTO_ZQ_CAL_EN                [0:32]  RW value= 0x0 */
+#define LIBERO_SETTING_CFG_AUTO_ZQ_CAL_EN    0x00000001UL
+    /* CFG_AUTO_ZQ_CAL_EN                [0:32]  RW value= 0x1 */
 #endif
 #if !defined (LIBERO_SETTING_CFG_MEMORY_TYPE)
 /*IP Blk = MC_BASE2 Access=RW */

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright 2019-2023 Microchip FPGA Embedded Systems Solutions.
+ * Copyright 2019-2025 Microchip FPGA Embedded Systems Solutions.
  *
  * SPDX-License-Identifier: MIT
  *
@@ -35,13 +35,13 @@ extern  "C" {
 #if !defined (LIBERO_SETTING_IOMUX0_CR)
 /*Selects whether the peripheral is connected to the Fabric or IOMUX structure.
 */
-#define LIBERO_SETTING_IOMUX0_CR    0x00002F07UL
+#define LIBERO_SETTING_IOMUX0_CR    0x00002F37UL
     /* SPI0_FABRIC                       [0:1]   RW value= 0x1 */
     /* SPI1_FABRIC                       [1:1]   RW value= 0x1 */
     /* I2C0_FABRIC                       [2:1]   RW value= 0x1 */
     /* I2C1_FABRIC                       [3:1]   RW value= 0x0 */
-    /* CAN0_FABRIC                       [4:1]   RW value= 0x0 */
-    /* CAN1_FABRIC                       [5:1]   RW value= 0x0 */
+    /* CAN0_FABRIC                       [4:1]   RW value= 0x1 */
+    /* CAN1_FABRIC                       [5:1]   RW value= 0x1 */
     /* QSPI_FABRIC                       [6:1]   RW value= 0x0 */
     /* MMUART0_FABRIC                    [7:1]   RW value= 0x0 */
     /* MMUART1_FABRIC                    [8:1]   RW value= 0x1 */
