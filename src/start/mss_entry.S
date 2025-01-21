@@ -19,45 +19,36 @@
 
   .option norvc
   .section .text.init,"ax", %progbits
-  .globl reset_vector
   .globl _start
 
-reset_vector:
 _start:
     /*
-     * clear the Return Address Stack
+     * Clear DTIM and LIM this is required to stop memory errors on initial access by
+     * cache
+     */
+    call    .clear_dtim
+    call    .clear_l2lim
+
+    /*
+     * Clear the Return Address Stack
      */
     call .clear_ras
-    /* Setup trap handler */
-    la a4, trap_vector
-    csrw mtvec, a4          # initalise machine trap vector address
-    /* Make sure that mtvec is updated before continuing */
-    1:
-    csrr    a5, mtvec
-    bne a4, a5, 1b
-    /* Disable and clear all interrupts */
-    li a2,  MSTATUS_MIE
-    csrc mstatus, a2        # clear interrupt enable bit
-    csrw mie, zero
-    csrw mip, zero
-    # Init delegation registers, mideleg, medeleg, if a U54
-    # These are not initialised by the hardware and come up in a random state
-    csrr a0, mhartid
-    beqz a0, .skip_e51
-    csrw mideleg, 0
-    csrw medeleg, 0
-.skip_e51:
-    # mscratch must be init to zero- we are not using scratch memory
+
+    /*
+     * mscratch must be init to zero- we are not using scratch memory
+     */
     csrw mscratch, zero
     csrw mcause, zero
     csrw mepc, zero
+
     /*
-     * clear PMP enables
+     * Clear PMP enables
      */
     csrw pmpcfg0, zero
     csrw pmpcfg2, zero
+
     /*
-     * clear regs
+     * Clear regs
      */
     li  x1, 0
     li  x2, 0
@@ -91,6 +82,56 @@ _start:
     li  x30,0
     li  x31,0
 
+    /*
+     * Clear bus error unit accrued register on start-up
+     * This is cleared by the first hart only
+     */
+    la a4,0x01700020UL
+    sb   x0, 0(a4)
+    la a4,0x01701020UL
+    sb   x0, 0(a4)
+    la a4,0x01702020UL
+    sb   x0, 0(a4)
+    la a4,0x01703020UL
+    sb   x0, 0(a4)
+    la a4,0x01704020UL
+    sb   x0, 0(a4)
+
+    /* Disable and clear all interrupts */
+    li a2,  MSTATUS_MIE | MSTATUS_SIE
+    csrc mstatus, a2        # clear interrupt enable bit
+    csrw mie, zero
+    csrw mip, zero
+
+    # initialize global pointer, global data
+    # The __global_pointer is allocated in the linker script. It points to a
+    # location 2k after sdata start as the offsets used in the gp are +/- 2k
+    # See https://www.sifive.com/blog/2017/08/28/all-aboard-part-3-linker-relaxation-in-riscv-toolchain/
+    # see: http://www.rowleydownload.co.uk/arm/documentation/gnu/as/RISC_002dV_002dDirectives.html
+    .option push
+    .option norelax
+    la gp, __global_pointer$
+    .option pop
+
+    /* Setup trap handler */
+    la a4, trap_vector
+    csrw mtvec, a4          # initalise machine trap vector address
+    /* Make sure that mtvec is updated before continuing */
+    1:
+    csrr    a5, mtvec
+    bne a4, a5, 1b
+
+    # Init delegation registers, mideleg, medeleg, if a U54
+    # These are not initialised by the hardware and come up in a random state
+    csrr a0, mhartid
+
+
+    beqz a0, .skip_e51
+    csrw mideleg, 0
+    csrw medeleg, 0
+.skip_e51:
+
+
     # make sure XLEN agrees with compilation choice, if not will loop here
 .LxlenCheck:
     csrr t0, misa
@@ -102,15 +143,6 @@ _start:
     j .LxlenCheck
 .LxlenPass:
 
-    # initialize global pointer, global data
-    # The __global_pointer is allocated in the linker script. It points to a
-    # location 2k after sdata start as the offsets used in the gp are +/- 2k
-    # See https://www.sifive.com/blog/2017/08/28/all-aboard-part-3-linker-relaxation-in-riscv-toolchain/
-    # see: http://www.rowleydownload.co.uk/arm/documentation/gnu/as/RISC_002dV_002dDirectives.html
-    .option push
-    .option norelax
-    la gp, __global_pointer$
-    .option pop
 
     # get core id
     csrr a0, mhartid
@@ -161,20 +193,7 @@ _start:
     csrr a0, mhartid
     li a1, MPFS_HAL_FIRST_HART
     bne a0, a1, .LOtherHartstoWFI
-    #
-    # clear DTIM - this is required to stop memory errors on initial access by
-    # cache
-    # Also, stops x propagation in simulation, when cache/stack reads unused
-    # area
-    #
-    li a2, MPFS_HAL_CLEAR_MEMORY
-    beq x0, a2, .skip_mem_clear
-    call    .clear_dtim
-    call    .clear_l2lim
-.skip_mem_clear:
-    li  a0, NUM_CACHEWAYS_AT_RESET    # flush default way in case it has already
-                                      # been used by system controller loader
-                                      # (bootmode2 or 3)
+
     call    .flush_early_caching
     call    config_l2_cache
     call    end_l2_scratchpad_address  # end address returned in a0
@@ -186,25 +205,16 @@ _start:
     STORE x0, 0(a4)
     add a4, a4, __SIZEOF_POINTER__
     blt a4, a5, .init_heap
-    /*
-     * Clear bus error unit accrued register on start-up
-     * This is cleared by the first hart only
-     */
-    la a4,0x01700020UL
-    sb   x0, 0(a4)
-    la a4,0x01701020UL
-    sb   x0, 0(a4)
-    la a4,0x01702020UL
-    sb   x0, 0(a4)
-    la a4,0x01703020UL
-    sb   x0, 0(a4)
-    la a4,0x01704020UL
-    sb   x0, 0(a4)
+
     # now core MPFS_HAL_FIRST_HART jumps to main_first_hart
 .main_hart:
     # pass HLS address
     mv  a0, tp
     j main_first_hart
+
+
+
+    
 .LoopForeverMain:
     #in case of return, loop forever. nop's added so can be seen in debugger
     nop
@@ -267,25 +277,6 @@ _start:
 /******************************************************************************/
 
 trap_vector:
-#if defined USING_FREERTOS
-    addi    sp, sp, -REGBYTES /* Save t0 for now */
-    STORE   t0, 0x0(sp)
-    csrr  t0, mcause
-    bge   t0,x0,.Le51_other  /* Not an interrupt... */
-    slli  t0,t0,1
-    srli  t0,t0,1
-    addi  t0,t0,-7
-    bne   t0,x0,.Le51_other /* Not Timer interrupt... */
-    /* Interrupt is timer interrupt so let FreeRTOS handle it */
-    LOAD    t0, 0x0(sp)     # Restore t0 for proper context save by FreeRTOS
-    addi    sp, sp, REGBYTES
-    j       TIMER_CMP_INT
-    mret
-
-.Le51_other:                # Re-enter mainline here if not timer interrupt
-    LOAD    t0, 0x0(sp)       # Restore t0 for proper context save by HAL
-    addi    sp, sp, REGBYTES
-#endif
     # The mscratch register is an XLEN-bit read/write register dedicated for use by machine mode.
     # Typically, it is used to hold a pointer to a machine-mode hart-local context space and swapped
     # with a user register upon entry to an M-mode trap handler.
@@ -377,15 +368,6 @@ restore_regs:
  /*****************************************************************************/
  /******************************interrupt handeling above here*****************/
  /*****************************************************************************/
-
-.enable_sw_int:
-    li a2, MIP_MSIP
-    csrw mie, a2            # Set MSIE bit to receive IPI
-    li a2,  MSTATUS_MIE
-    csrs mstatus, a2        # enable interrupts
-    /* flush the instruction cache */
-    fence.i
-    ret
 
  /***********************************************************************************
  *

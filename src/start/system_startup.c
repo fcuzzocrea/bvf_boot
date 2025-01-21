@@ -187,9 +187,7 @@ int main_other_hart(HLS_DATA* hls)
     const uint64_t app_stack_top_h3 = (const uint64_t)&__app_stack_top_h3 - (HLS_DEBUG_AREA_SIZE);
     const uint64_t app_stack_top_h4 = (const uint64_t)&__app_stack_top_h4 - (HLS_DEBUG_AREA_SIZE);
 
-#ifdef TURN_OFF_POWER_TO_PARKED_HARTS
     turn_off_power_to_parked_harts_ram();
-#endif
 
     turn_on_fpu((uint32_t)LIBERO_SETTING_TURN_ON_FPU);
 
@@ -250,7 +248,6 @@ int main_other_hart(HLS_DATA* hls)
     }
 
   return (0);
-
 }
 
 /*==============================================================================
